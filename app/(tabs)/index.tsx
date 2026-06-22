@@ -38,6 +38,8 @@ export default function HomeScreen() {
 
 console.log("DATA:", data);
 console.log("ERROR:", error);
+console.log("DELETE DATA:", data);
+console.log("DELETE ERROR:", error);
 
   if (error) {
     alert(error.message);
@@ -59,16 +61,19 @@ console.log("ERROR:", error);
     loadTasks();
   }
 
-  async function deleteTask(id: string) {
-    const { error } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('id', id);
+async function deleteTask(id: string) {
+  const { error, data } = await supabase
+    .from('tasks')
+    .delete()
+    .eq('id', id);
 
-    if (error) return console.log(error.message);
+  console.log("DELETE DATA:", data);
+  console.log("DELETE ERROR:", error);
 
-    loadTasks();
-  }
+  if (error) return alert(error.message);
+
+  loadTasks();
+}
 
   return (
     <View style={styles.container}>
@@ -82,9 +87,9 @@ console.log("ERROR:", error);
           onChangeText={setTask}
         />
 
-        <TouchableOpacity style={styles.addButton} onPress={addTask}>
-          <MaterialIcons name="add" size={22} color="#fff" />
-        </TouchableOpacity>
+        <TouchableOpacity onPress={() => deleteTask(item.id)}>
+  <MaterialIcons name="delete" size={18} color="#E74C3C" />
+</TouchableOpacity>
       </View>
 
       {tasks.map((item) => (
