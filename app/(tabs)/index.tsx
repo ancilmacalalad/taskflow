@@ -1,24 +1,79 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { supabase } from '@/lib/supabase';
+
+type Task = {
+  id: string;
+  title: string;
+  completed: boolean;
+};
 
 export default function HomeScreen() {
-  // ✅ DAPAT NANDITO SA LOOB ang useState
   const [task, setTask] = useState('');
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
 
-  // ✅ HANDLER FUNCTION
-  function handleAddTask() {
-    if (task.trim() === '') return;
-    setTasks([...tasks, { id: Date.now().toString(), title: task, completed: false }]);
-    setTask('');
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  async function loadTasks() {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) return console.log(error.message);
+
+    setTasks(data || []);
+  }
+
+  async function addTask() {
+  if (!task.trim()) return;
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert([{ title: task, completed: false }])
+    .select();
+
+console.log("DATA:", data);
+console.log("ERROR:", error);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  setTask('');
+  loadTasks();
+}
+
+  async function toggleTask(item: Task) {
+    const { error } = await supabase
+      .from('tasks')
+      .update({ completed: !item.completed })
+      .eq('id', item.id);
+
+    if (error) return console.log(error.message);
+
+    loadTasks();
+  }
+
+  async function deleteTask(id: string) {
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', id);
+
+    if (error) return console.log(error.message);
+
+    loadTasks();
   }
 
   return (
     <View style={styles.container}>
-      <View style={headerStyles.header}>
-        <Text style={headerStyles.title}>TaskFlow</Text>
-      </View>
+      <Text style={styles.title}>TaskFlow</Text>
+
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
@@ -26,52 +81,66 @@ export default function HomeScreen() {
           value={task}
           onChangeText={setTask}
         />
-        <TouchableOpacity style={styles.addButton} onPress={handleAddTask}>
+
+        <TouchableOpacity style={styles.addButton} onPress={addTask}>
           <MaterialIcons name="add" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* ✅ DYNAMIC na, hindi na static */}
       {tasks.map((item) => (
-        <View key={item.id} style={styles.taskRow}>
+        <TouchableOpacity
+          key={item.id}
+          onPress={() => toggleTask(item)}
+          onLongPress={() => deleteTask(item.id)}
+          style={styles.taskRow}
+        >
           <MaterialIcons
             name={item.completed ? 'check-box' : 'check-box-outline-blank'}
             size={20}
             color={item.completed ? '#2E5BBA' : '#5A6472'}
           />
-          <Text style={styles.taskText}>{item.title}</Text>
-        </View>
-      ))}
 
+          <Text style={[styles.taskText, item.completed && styles.done]}>
+            {item.title}
+          </Text>
+
+          <MaterialIcons name="delete" size={18} color="#E74C3C" />
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }
 
-const headerStyles = StyleSheet.create({
-  header: {
-    paddingTop: 50,
-    paddingBottom: 16,
-    marginBottom: 10,
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
+  title: { fontSize: 28, fontWeight: 'bold', marginTop: 40 },
+
+  inputRow: { flexDirection: 'row', marginVertical: 20 },
+
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    padding: 10,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+
+  addButton: {
+    backgroundColor: '#2E5BBA',
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#1F2A44' },
-});
 
-const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20, backgroundColor: '#fff' },
-  inputRow: { flexDirection: 'row', marginBottom: 20 },
-  input: {
-    flex: 1, borderWidth: 1, borderColor: '#ccc',
-    borderRadius: 8, padding: 10, marginRight: 10,
-  },
-  addButton: {
-    backgroundColor: '#2E5BBA', borderRadius: 8,
-    paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center',
-  },
-  taskRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee',
-  },
-  taskText: { fontSize: 15 },
+  taskText: { flex: 1, marginLeft: 10 },
+  done: { textDecorationLine: 'line-through', color: '#999' },
 });
